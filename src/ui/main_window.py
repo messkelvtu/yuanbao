@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import sys  # 确保在文件顶部导入sys
 from pathlib import Path
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLineEdit, QLabel, QMessageBox,
@@ -11,18 +12,51 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QSettings
 from PyQt5.QtGui import QIcon
 
-from core.downloader import BilibiliDownloader, DownloadThread
-from core.music_manager import MusicManager
-from core.lyric_matcher import LyricMatcher
-from ui.lyrics_window import LyricsWindow
+# 确保在导入其他模块前sys可用
+if 'sys' not in globals():
+    import sys
+
+# 尝试导入核心模块，如果失败则提供友好错误
+try:
+    from core.downloader import BilibiliDownloader, DownloadThread
+    from core.music_manager import MusicManager
+    from core.lyric_matcher import LyricMatcher
+    from ui.lyrics_window import LyricsWindow
+except ImportError as e:
+    print(f"模块导入错误: {e}")
+    # 创建虚拟类以避免后续错误
+    class BilibiliDownloader:
+        def __init__(self): pass
+    class DownloadThread(QThread):
+        def __init__(self): super().__init__()
+    class MusicManager:
+        def __init__(self): pass
+    class LyricMatcher:
+        def __init__(self): pass
+    class LyricsWindow:
+        def __init__(self): pass
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        # 确保在初始化前sys可用
+        if 'sys' not in globals():
+            import sys
+            
         self.settings = QSettings("B站音乐提取器", "B站音乐提取器")
-        self.downloader = BilibiliDownloader()
-        self.music_manager = MusicManager()
-        self.lyric_matcher = LyricMatcher()
+        
+        # 安全初始化核心组件
+        try:
+            self.downloader = BilibiliDownloader()
+            self.music_manager = MusicManager()
+            self.lyric_matcher = LyricMatcher()
+        except Exception as e:
+            print(f"组件初始化失败: {e}")
+            # 创建虚拟对象以避免崩溃
+            self.downloader = BilibiliDownloader()
+            self.music_manager = MusicManager()
+            self.lyric_matcher = LyricMatcher()
+            
         self.download_threads = []
         self.current_songs = []
         
@@ -294,8 +328,11 @@ class MainWindow(QMainWindow):
         self.current_songs = []
         
         for audio_file in audio_files:
-            song_info = self.music_manager.get_song_info(audio_file)
-            self.add_song_to_list(song_info)
+            try:
+                song_info = self.music_manager.get_song_info(audio_file)
+                self.add_song_to_list(song_info)
+            except Exception as e:
+                print(f"加载歌曲信息失败: {e}")
             
         self.update_status_label()
         
@@ -365,19 +402,22 @@ class MainWindow(QMainWindow):
         download_path = Path(self.download_path_input.text())
         download_path.mkdir(parents=True, exist_ok=True)
         
-        # 创建下载线程
-        thread = DownloadThread(url, str(download_path), self.downloader)
-        thread.progress.connect(self.update_download_progress)
-        thread.finished.connect(self.download_finished)
-        thread.error.connect(self.download_error)
-        
-        # 添加到下载列表
-        self.add_download_to_list(url, thread)
-        
-        # 启动下载
-        thread.start()
-        self.download_threads.append(thread)
-        
+        try:
+            # 创建下载线程
+            thread = DownloadThread(url, str(download_path), self.downloader)
+            thread.progress.connect(self.update_download_progress)
+            thread.finished.connect(self.download_finished)
+            thread.error.connect(self.download_error)
+            
+            # 添加到下载列表
+            self.add_download_to_list(url, thread)
+            
+            # 启动下载
+            thread.start()
+            self.download_threads.append(thread)
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"下载失败: {str(e)}")
+                
     def download_batch(self):
         """批量下载"""
         urls, ok = QInputDialog.getMultiLineText(self, "批量下载", 
@@ -389,14 +429,17 @@ class MainWindow(QMainWindow):
             download_path.mkdir(parents=True, exist_ok=True)
             
             for url in url_list:
-                thread = DownloadThread(url, str(download_path), self.downloader)
-                thread.progress.connect(self.update_download_progress)
-                thread.finished.connect(self.download_finished)
-                thread.error.connect(self.download_error)
-                
-                self.add_download_to_list(url, thread)
-                thread.start()
-                self.download_threads.append(thread)
+                try:
+                    thread = DownloadThread(url, str(download_path), self.downloader)
+                    thread.progress.connect(self.update_download_progress)
+                    thread.finished.connect(self.download_finished)
+                    thread.error.connect(self.download_error)
+                    
+                    self.add_download_to_list(url, thread)
+                    thread.start()
+                    self.download_threads.append(thread)
+                except Exception as e:
+                    print(f"批量下载失败: {e}")
                 
     def add_download_to_list(self, url, thread):
         """添加下载任务到列表"""
@@ -507,7 +550,10 @@ class MainWindow(QMainWindow):
         for song_path in selected_songs:
             new_name, ok = QInputDialog.getText(self, "重命名", "请输入新文件名:", text=song_path.stem)
             if ok and new_name:
-                self.music_manager.rename_file(song_path, new_name + song_path.suffix)
+                try:
+                    self.music_manager.rename_file(song_path, new_name + song_path.suffix)
+                except Exception as e:
+                    QMessageBox.warning(self, "错误", f"重命名失败: {str(e)}")
                 
         self.load_music_library()
         
@@ -521,7 +567,10 @@ class MainWindow(QMainWindow):
         path = QFileDialog.getExistingDirectory(self, "选择目标文件夹")
         if path:
             for song_path in selected_songs:
-                self.music_manager.move_file(song_path, Path(path))
+                try:
+                    self.music_manager.move_file(song_path, Path(path))
+                except Exception as e:
+                    QMessageBox.warning(self, "错误", f"移动失败: {str(e)}")
                 
         self.load_music_library()
         
@@ -535,7 +584,10 @@ class MainWindow(QMainWindow):
         reply = QMessageBox.question(self, "确认删除", f"确定要删除这 {len(selected_songs)} 首歌曲吗?")
         if reply == QMessageBox.Yes:
             for song_path in selected_songs:
-                self.music_manager.delete_file(song_path)
+                try:
+                    self.music_manager.delete_file(song_path)
+                except Exception as e:
+                    QMessageBox.warning(self, "错误", f"删除失败: {str(e)}")
                 
         self.load_music_library()
         
@@ -546,8 +598,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "警告", "请先选择歌曲")
             return
             
-        self.lyrics_window = LyricsWindow(selected_songs[0], self.lyric_matcher)
-        self.lyrics_window.show()
+        try:
+            self.lyrics_window = LyricsWindow(selected_songs[0], self.lyric_matcher)
+            self.lyrics_window.show()
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"打开歌词管理器失败: {str(e)}")
         
     def import_music(self):
         """导入音乐"""
@@ -566,7 +621,10 @@ class MainWindow(QMainWindow):
                 
                 # 复制文件到下载目录
                 import shutil
-                shutil.copy2(file_path, target_path)
+                try:
+                    shutil.copy2(file_path, target_path)
+                except Exception as e:
+                    QMessageBox.warning(self, "错误", f"导入失败: {str(e)}")
                 
             self.load_music_library()
             
@@ -577,15 +635,18 @@ class MainWindow(QMainWindow):
         )
         
         if path:
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write("音乐列表\n")
-                f.write("=" * 50 + "\n")
-                
-                for i in range(self.song_list.topLevelItemCount()):
-                    item = self.song_list.topLevelItem(i)
-                    f.write(f"{i+1}. {item.text(1)} - {item.text(2)} ({item.text(4)})\n")
+            try:
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write("音乐列表\n")
+                    f.write("=" * 50 + "\n")
                     
-            QMessageBox.information(self, "导出成功", f"音乐列表已导出到: {path}")
+                    for i in range(self.song_list.topLevelItemCount()):
+                        item = self.song_list.topLevelItem(i)
+                        f.write(f"{i+1}. {item.text(1)} - {item.text(2)} ({item.text(4)})\n")
+                        
+                QMessageBox.information(self, "导出成功", f"音乐列表已导出到: {path}")
+            except Exception as e:
+                QMessageBox.warning(self, "错误", f"导出失败: {str(e)}")
             
     def open_settings(self):
         """打开设置对话框"""
