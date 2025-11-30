@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 B站音乐提取器构建脚本
 自动打包为Windows可执行文件
@@ -9,6 +10,24 @@ import sys
 import shutil
 import subprocess
 from pathlib import Path
+
+# 设置标准输出编码为UTF-8
+if sys.stdout.encoding != 'utf-8':
+    if sys.version_info >= (3, 7):
+        sys.stdout.reconfigure(encoding='utf-8')
+    else:
+        # Python 3.6及以下版本的兼容处理
+        import codecs
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+
+def safe_print(message):
+    """安全打印函数，处理编码问题"""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # 如果遇到编码错误，使用ASCII替代
+        safe_message = message.encode('ascii', 'replace').decode('ascii')
+        print(safe_message)
 
 def read_version():
     """读取版本号"""
@@ -24,7 +43,7 @@ def clean_build_dirs():
     for dir_name in dirs_to_clean:
         if os.path.exists(dir_name):
             shutil.rmtree(dir_name)
-            print(f"已清理目录: {dir_name}")
+            safe_print(f"Cleaned directory: {dir_name}")
 
 def create_icon_if_missing():
     """如果图标文件不存在，创建一个简单的图标（可选）"""
@@ -32,7 +51,7 @@ def create_icon_if_missing():
     if not icon_path.exists():
         # 创建assets目录
         icon_path.parent.mkdir(exist_ok=True)
-        print("⚠️ 图标文件不存在，将使用默认图标")
+        safe_print("Warning: Icon file not found, using default icon")
 
 def run_pyinstaller():
     """使用PyInstaller打包"""
@@ -40,10 +59,10 @@ def run_pyinstaller():
     # 确保图标目录存在
     create_icon_if_missing()
     
-    # PyInstaller配置
+    # PyInstaller配置 - 使用英文参数避免编码问题
     pyinstaller_cmd = [
         'pyinstaller',
-        '--name=B站音乐提取器',
+        '--name=BilibiliMusicExtractor',  # 使用英文名称
         '--windowed',  # 不显示控制台窗口
         '--onefile',   # 打包为单个exe
         '--icon=assets/icon.ico' if os.path.exists('assets/icon.ico') else '',
@@ -64,61 +83,89 @@ def run_pyinstaller():
     # 过滤空参数
     pyinstaller_cmd = [arg for arg in pyinstaller_cmd if arg]
     
-    print("开始打包...")
-    print(f"执行命令: {' '.join(pyinstaller_cmd)}")
+    safe_print("Starting build process...")
+    safe_print(f"Command: {' '.join(pyinstaller_cmd)}")
     
     try:
-        result = subprocess.run(pyinstaller_cmd, capture_output=True, text=True, check=True)
+        # 使用UTF-8编码运行子进程
+        result = subprocess.run(
+            pyinstaller_cmd, 
+            capture_output=True, 
+            text=True, 
+            encoding='utf-8',
+            check=True
+        )
         
-        print("✓ 打包成功!")
+        safe_print("✓ Build successful!")
         
         # 检查生成的可执行文件
-        exe_path = Path('dist') / 'B站音乐提取器.exe'
+        exe_path = Path('dist') / 'BilibiliMusicExtractor.exe'
         if exe_path.exists():
             file_size = exe_path.stat().st_size / (1024 * 1024)  # MB
-            print(f"✓ 生成文件: {exe_path} ({file_size:.2f} MB)")
+            safe_print(f"✓ Generated file: {exe_path} ({file_size:.2f} MB)")
             return True
         else:
-            print("✗ 未找到生成的可执行文件")
+            safe_print("✗ Executable file not found")
             return False
             
     except subprocess.CalledProcessError as e:
-        print("✗ 打包失败!")
-        print("STDOUT:", e.stdout)
-        print("STDERR:", e.stderr)
+        safe_print("✗ Build failed!")
+        safe_print("STDOUT: " + e.stdout)
+        safe_print("STDERR: " + e.stderr)
         return False
     except Exception as e:
-        print(f"✗ 打包过程中发生错误: {e}")
+        safe_print(f"✗ Error during build: {e}")
         return False
+
+def rename_executable():
+    """构建完成后重命名可执行文件为中文（如果系统支持）"""
+    original_path = Path('dist') / 'BilibiliMusicExtractor.exe'
+    target_path = Path('dist') / 'B站音乐提取器.exe'
+    
+    if original_path.exists():
+        try:
+            # 尝试重命名为中文
+            original_path.rename(target_path)
+            safe_print(f"Renamed to: {target_path}")
+        except (OSError, UnicodeEncodeError):
+            # 如果重命名失败，保持英文名称
+            safe_print("Cannot rename to Chinese, keeping English name")
+            return str(original_path)
+    
+    return str(target_path) if target_path.exists() else str(original_path)
 
 def main():
     """主构建流程"""
-    print("=" * 50)
-    print("B站音乐提取器 - 构建工具")
-    print("=" * 50)
+    safe_print("=" * 50)
+    safe_print("Bilibili Music Extractor - Build Tool")
+    safe_print("=" * 50)
     
     version = read_version()
-    print(f"版本: {version}")
+    safe_print(f"Version: {version}")
     
     # 检查当前目录
     if not os.path.exists('src/main.py'):
-        print("错误: 请在项目根目录运行此脚本")
-        print("当前目录内容:", os.listdir('.'))
+        safe_print("Error: Please run this script from the project root directory")
+        safe_print("Current directory contents: " + str(os.listdir('.')))
         return 1
     
     # 清理构建目录
-    print("\n1. 清理构建目录...")
+    safe_print("\n1. Cleaning build directories...")
     clean_build_dirs()
     
     # 打包为exe
-    print("\n2. 使用PyInstaller打包...")
+    safe_print("\n2. Building with PyInstaller...")
     if not run_pyinstaller():
         return 1
     
-    print("\n" + "=" * 50)
-    print("✓ 构建完成!")
-    print(f"可执行文件位置: dist/B站音乐提取器.exe")
-    print("=" * 50)
+    # 尝试重命名可执行文件
+    safe_print("\n3. Finalizing executable...")
+    final_exe_path = rename_executable()
+    
+    safe_print("\n" + "=" * 50)
+    safe_print("✓ Build completed successfully!")
+    safe_print(f"Executable location: {final_exe_path}")
+    safe_print("=" * 50)
     
     return 0
 
