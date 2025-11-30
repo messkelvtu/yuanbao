@@ -12,8 +12,11 @@ from pathlib import Path
 
 def read_version():
     """读取版本号"""
-    with open('version.txt', 'r', encoding='utf-8') as f:
-        return f.read().strip()
+    try:
+        with open('version.txt', 'r', encoding='utf-8') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "1.0.0"
 
 def clean_build_dirs():
     """清理构建目录"""
@@ -23,8 +26,19 @@ def clean_build_dirs():
             shutil.rmtree(dir_name)
             print(f"已清理目录: {dir_name}")
 
+def create_icon_if_missing():
+    """如果图标文件不存在，创建一个简单的图标（可选）"""
+    icon_path = Path('assets/icon.ico')
+    if not icon_path.exists():
+        # 创建assets目录
+        icon_path.parent.mkdir(exist_ok=True)
+        print("⚠️ 图标文件不存在，将使用默认图标")
+
 def run_pyinstaller():
     """使用PyInstaller打包"""
+    
+    # 确保图标目录存在
+    create_icon_if_missing()
     
     # PyInstaller配置
     pyinstaller_cmd = [
@@ -42,6 +56,7 @@ def run_pyinstaller():
         '--hidden-import=requests',
         '--hidden-import=beautifulsoup4',
         '--hidden-import=lxml',
+        '--hidden-import=mutagen',
         '--clean',  # 清理临时文件
         'src/main.py'
     ]
@@ -52,9 +67,9 @@ def run_pyinstaller():
     print("开始打包...")
     print(f"执行命令: {' '.join(pyinstaller_cmd)}")
     
-    result = subprocess.run(pyinstaller_cmd, capture_output=True, text=True)
-    
-    if result.returncode == 0:
+    try:
+        result = subprocess.run(pyinstaller_cmd, capture_output=True, text=True, check=True)
+        
         print("✓ 打包成功!")
         
         # 检查生成的可执行文件
@@ -62,24 +77,19 @@ def run_pyinstaller():
         if exe_path.exists():
             file_size = exe_path.stat().st_size / (1024 * 1024)  # MB
             print(f"✓ 生成文件: {exe_path} ({file_size:.2f} MB)")
+            return True
         else:
             print("✗ 未找到生成的可执行文件")
             return False
             
-    else:
+    except subprocess.CalledProcessError as e:
         print("✗ 打包失败!")
-        print("STDOUT:", result.stdout)
-        print("STDERR:", result.stderr)
+        print("STDOUT:", e.stdout)
+        print("STDERR:", e.stderr)
         return False
-        
-    return True
-
-def create_installer():
-    """创建安装包（可选）"""
-    # 这里可以使用Inno Setup或NSIS创建安装包
-    # 由于云编译环境限制，这里暂不实现
-    print("跳过安装包创建（需要额外配置）")
-    return True
+    except Exception as e:
+        print(f"✗ 打包过程中发生错误: {e}")
+        return False
 
 def main():
     """主构建流程"""
@@ -93,6 +103,7 @@ def main():
     # 检查当前目录
     if not os.path.exists('src/main.py'):
         print("错误: 请在项目根目录运行此脚本")
+        print("当前目录内容:", os.listdir('.'))
         return 1
     
     # 清理构建目录
@@ -103,10 +114,6 @@ def main():
     print("\n2. 使用PyInstaller打包...")
     if not run_pyinstaller():
         return 1
-    
-    # 创建安装包（可选）
-    print("\n3. 创建安装包...")
-    create_installer()
     
     print("\n" + "=" * 50)
     print("✓ 构建完成!")
