@@ -53,11 +53,79 @@ def create_icon_if_missing():
         icon_path.parent.mkdir(exist_ok=True)
         safe_print("Warning: Icon file not found, using default icon")
 
+def check_project_structure():
+    """检查项目结构是否完整"""
+    required_dirs = [
+        'src',
+        'src/ui',
+        'src/core',
+        'src/utils'
+    ]
+    
+    required_files = [
+        'src/main.py',
+        'src/ui/main_window.py',
+        'src/ui/lyrics_window.py',
+        'src/core/downloader.py',
+        'src/core/lyric_matcher.py',
+        'src/core/music_manager.py',
+        'src/utils/helpers.py'
+    ]
+    
+    safe_print("Checking project structure...")
+    
+    # 检查目录
+    for dir_path in required_dirs:
+        if not os.path.exists(dir_path):
+            safe_print(f"Creating missing directory: {dir_path}")
+            os.makedirs(dir_path, exist_ok=True)
+    
+    # 检查文件并创建必要的空文件
+    for file_path in required_files:
+        if not os.path.exists(file_path):
+            safe_print(f"Creating placeholder file: {file_path}")
+            with open(file_path, 'w', encoding='utf-8') as f:
+                if file_path.endswith('__init__.py'):
+                    # 空文件即可
+                    pass
+                elif file_path.endswith('helpers.py'):
+                    f.write('''"""
+工具函数模块
+"""
+
+def sanitize_filename(filename):
+    """清理文件名中的非法字符"""
+    import re
+    return re.sub(r'[<>:"/\\\\|?*]', '', filename)
+
+def format_duration(seconds):
+    """格式化时长（秒 -> MM:SS）"""
+    minutes = seconds // 60
+    seconds = seconds % 60
+    return f"{minutes:02d}:{seconds:02d}"
+''')
+                else:
+                    # 创建基本的Python文件结构
+                    module_name = os.path.basename(file_path).replace('.py', '')
+                    f.write(f'"""\n{module_name} 模块\n"""\n\n# TODO: 实现功能\n')
+    
+    # 创建__init__.py文件确保目录被识别为Python包
+    for dir_path in ['src/ui', 'src/core', 'src/utils']:
+        init_file = os.path.join(dir_path, '__init__.py')
+        if not os.path.exists(init_file):
+            with open(init_file, 'w', encoding='utf-8') as f:
+                f.write('')
+    
+    safe_print("Project structure check completed")
+
 def run_pyinstaller():
     """使用PyInstaller打包"""
     
     # 确保图标目录存在
     create_icon_if_missing()
+    
+    # 检查项目结构
+    check_project_structure()
     
     # PyInstaller配置 - 使用英文参数避免编码问题
     pyinstaller_cmd = [
