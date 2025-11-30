@@ -27,7 +27,8 @@ def main():
     setup_logging()
     
     try:
-        from PyQt5.QtWidgets import QApplication
+        # 确保在函数内部正确导入
+        from PyQt5.QtWidgets import QApplication, QMessageBox
         from ui.main_window import MainWindow
         
         # 创建应用
@@ -41,22 +42,33 @@ def main():
         window.show()
         
         # 运行应用
-        return app.exec_()
+        sys.exit(app.exec_())
         
     except Exception as e:
         logging.error(f"应用启动失败: {e}")
         
-        # 显示错误对话框
-        from PyQt5.QtWidgets import QMessageBox, QApplication
-        import sys
-        
-        error_app = QApplication(sys.argv)
-        QMessageBox.critical(
-            None, 
-            "启动错误", 
-            f"应用启动时发生错误:\n{str(e)}\n\n请检查安装是否完整。"
-        )
-        return 1
+        # 显示错误对话框 - 修复sys引用问题
+        try:
+            from PyQt5.QtWidgets import QApplication, QMessageBox
+            # 确保sys在此时可用
+            if 'sys' not in locals() and 'sys' not in globals():
+                import sys
+            
+            # 创建临时应用实例显示错误信息
+            app = QApplication(sys.argv) if 'sys' in locals() or 'sys' in globals() else QApplication([])
+            QMessageBox.critical(
+                None, 
+                "启动错误", 
+                f"应用启动时发生错误:\n{str(e)}\n\n请检查安装是否完整。"
+            )
+            return 1
+        except Exception as dialog_error:
+            # 如果连错误对话框都无法显示，直接打印到控制台
+            print(f"严重错误: {dialog_error}")
+            return 1
 
 if __name__ == "__main__":
+    # 确保sys在全局可用
+    if 'sys' not in globals():
+        import sys
     sys.exit(main())
