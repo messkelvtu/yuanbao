@@ -4,3 +4,4 @@ beautifulsoup4==4.12.2
 lxml==4.9.3
 mutagen==1.46.0
 yt-dlp==2023.7.6
+Pillow==10.0.0  # 仅用于生成图标，打包时不需要
