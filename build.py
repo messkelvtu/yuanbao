@@ -167,9 +167,6 @@ def run_pyinstaller():
         'src/main.py'
     ]
     
-    # 过滤空参数
-    pyinstaller_cmd = [arg for arg in pyinstaller_cmd if arg]
-    
     safe_print("Starting build process...")
     safe_print(f"Command: {' '.join(pyinstaller_cmd)}")
     
