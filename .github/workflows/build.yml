@@ -45,7 +45,7 @@ jobs:
         
     - name: List build artifacts
       run: |
-        ls -la dist/
+        dir dist\
         
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
