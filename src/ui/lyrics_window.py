@@ -1,6 +1,3 @@
-import os
-import requests
-from pathlib import Path
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QTextEdit, QPushButton, QLineEdit, QListWidget,
                              QProgressBar, QMessageBox, QListWidgetItem)
@@ -51,7 +48,7 @@ class LyricSearchThread(QThread):
 class LyricsWindow(QDialog):
     def __init__(self, song_path, lyric_matcher, parent=None):
         super().__init__(parent)
-        self.song_path = Path(song_path)
+        self.song_path = song_path
         self.lyric_matcher = lyric_matcher
         self.current_lyric = ""
         
@@ -118,26 +115,30 @@ class LyricsWindow(QDialog):
         
     def load_song_info(self):
         """加载歌曲信息"""
-        song_info = self.lyric_matcher.get_song_info(self.song_path)
-        song_name = song_info.get('title', self.song_path.stem)
-        artist = song_info.get('artist', '未知歌手')
-        
-        self.song_label.setText(f"{song_name} - {artist}")
-        self.search_input.setText(f"{song_name} {artist}")
-        
-        # 尝试加载现有歌词
-        self.load_existing_lyric()
-        
+        try:
+            song_info = self.lyric_matcher.get_song_info(self.song_path)
+            song_name = song_info.get('title', self.song_path.stem)
+            artist = song_info.get('artist', '未知歌手')
+            
+            self.song_label.setText(f"{song_name} - {artist}")
+            self.search_input.setText(f"{song_name} {artist}")
+            
+            # 尝试加载现有歌词
+            self.load_existing_lyric()
+        except Exception as e:
+            self.song_label.setText(f"{self.song_path.stem}")
+            self.search_input.setText(f"{self.song_path.stem}")
+            
     def load_existing_lyric(self):
         """加载现有歌词"""
-        lrc_path = self.song_path.with_suffix('.lrc')
-        if lrc_path.exists():
-            try:
+        try:
+            lrc_path = self.song_path.with_suffix('.lrc')
+            if lrc_path.exists():
                 with open(lrc_path, 'r', encoding='utf-8') as f:
                     self.current_lyric = f.read()
                     self.lyric_display.setPlainText(self.current_lyric)
-            except:
-                pass
+        except:
+            pass
                 
     def auto_match_lyrics(self):
         """自动匹配歌词"""
