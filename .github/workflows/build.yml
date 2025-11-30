@@ -16,12 +16,13 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
         
     - name: Install dependencies
       run: |
@@ -33,17 +34,15 @@ jobs:
       run: |
         python build.py
         
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v4
       with:
         name: B站音乐提取器-v${{ github.ref_name }}
-        path: |
-          dist/
-          !dist/*.zip
+        path: dist/B站音乐提取器.exe
         retention-days: 7
         
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: dist/*.exe
+        files: dist/B站音乐提取器.exe
