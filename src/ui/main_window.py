@@ -269,12 +269,15 @@ class MainWindow(QMainWindow):
         
         # 加载分类
         categories = self.settings.value("categories", ["流行", "摇滚", "电子", "古典", "爵士"])
-        self.category_list.addItems(categories)
+        for category in categories:
+            self.category_list.addItem(category)
         
     def save_settings(self):
         """保存设置"""
         self.settings.setValue("download_path", self.download_path_input.text())
-        categories = [self.category_list.item(i).text() for i in range(self.category_list.count())]
+        categories = []
+        for i in range(self.category_list.count()):
+            categories.append(self.category_list.item(i).text())
         self.settings.setValue("categories", categories)
         
     def load_music_library(self):
@@ -567,7 +570,8 @@ class MainWindow(QMainWindow):
                 
             self.load_music_library()
             
-    def export_music_list(self音乐列表"""
+    def export_music_list(self):
+        """导出音乐列表"""
         path, _ = QFileDialog.getSaveFileName(
             self, "导出音乐列表", "音乐列表.txt", "文本文件 (*.txt)"
         )
@@ -613,12 +617,3 @@ class MainWindow(QMainWindow):
                 thread.wait(1000)  # 等待1秒
                 
         event.accept()
-
-if __name__ == "__main__":
-    from PyQt5.QtWidgets import QApplication
-    import sys
-    
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
