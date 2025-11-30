@@ -3,12 +3,12 @@ name: Build Windows Executable
 on:
   push:
     tags:
-      - 'v*'  # 只在推送版本标签时触发构建
-  workflow_dispatch:  # 允许手动触发
+      - 'v*'
+  workflow_dispatch:
 
 env:
-  PYTHONUTF8: 1  # 启用Python UTF-8模式
-  PYTHONIOENCODING: utf-8  # 设置IO编码为UTF-8
+  PYTHONUTF8: 1
+  PYTHONIOENCODING: utf-8
 
 jobs:
   build-windows:
@@ -43,19 +43,19 @@ jobs:
       run: |
         python build.py
         
+    - name: List build artifacts
+      run: |
+        ls -la dist/
+        
     - name: Upload executable artifact
       uses: actions/upload-artifact@v4
       with:
         name: Bilibili-Music-Extractor-v${{ github.ref_name }}
-        path: |
-          dist/B站音乐提取器.exe
-          dist/BilibiliMusicExtractor.exe
+        path: dist/
         retention-days: 7
         
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          dist/B站音乐提取器.exe
-          dist/BilibiliMusicExtractor.exe
+        files: dist/*
