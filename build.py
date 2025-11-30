@@ -45,14 +45,6 @@ def clean_build_dirs():
             shutil.rmtree(dir_name)
             safe_print(f"Cleaned directory: {dir_name}")
 
-def create_icon_if_missing():
-    """如果图标文件不存在，创建一个简单的图标（可选）"""
-    icon_path = Path('assets/icon.ico')
-    if not icon_path.exists():
-        # 创建assets目录
-        icon_path.parent.mkdir(exist_ok=True)
-        safe_print("Warning: Icon file not found, using default icon")
-
 def check_project_structure():
     """检查项目结构是否完整"""
     required_dirs = [
@@ -64,11 +56,14 @@ def check_project_structure():
     
     required_files = [
         'src/main.py',
+        'src/ui/__init__.py',
         'src/ui/main_window.py',
         'src/ui/lyrics_window.py',
+        'src/core/__init__.py',
         'src/core/downloader.py',
         'src/core/lyric_matcher.py',
         'src/core/music_manager.py',
+        'src/utils/__init__.py',
         'src/utils/helpers.py'
     ]
     
@@ -103,26 +98,50 @@ def format_duration(seconds):
     minutes = seconds // 60
     seconds = seconds % 60
     return f"{minutes:02d}:{seconds:02d}"
+
+def format_file_size(size_bytes):
+    """格式化文件大小"""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes/1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes/(1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes/(1024 * 1024 * 1024):.1f} GB"
+
+def ensure_directory_exists(path):
+    """确保目录存在"""
+    Path(path).mkdir(parents=True, exist_ok=True)
+    return Path(path)
+
+def is_audio_file(file_path):
+    """检查是否是音频文件"""
+    audio_extensions = {'.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg'}
+    return Path(file_path).suffix.lower() in audio_extensions
+
+def get_unique_filename(file_path):
+    """获取唯一的文件名，避免覆盖"""
+    path = Path(file_path)
+    if not path.exists():
+        return path
+        
+    counter = 1
+    while True:
+        new_path = path.parent / f"{path.stem}_{counter}{path.suffix}"
+        if not new_path.exists():
+            return new_path
+        counter += 1
 ''')
                 else:
                     # 创建基本的Python文件结构
                     module_name = os.path.basename(file_path).replace('.py', '')
                     f.write(f'"""\n{module_name} 模块\n"""\n\n# TODO: 实现功能\n')
     
-    # 创建__init__.py文件确保目录被识别为Python包
-    for dir_path in ['src/ui', 'src/core', 'src/utils']:
-        init_file = os.path.join(dir_path, '__init__.py')
-        if not os.path.exists(init_file):
-            with open(init_file, 'w', encoding='utf-8') as f:
-                f.write('')
-    
     safe_print("Project structure check completed")
 
 def run_pyinstaller():
     """使用PyInstaller打包"""
-    
-    # 确保图标目录存在
-    create_icon_if_missing()
     
     # 检查项目结构
     check_project_structure()
@@ -133,7 +152,6 @@ def run_pyinstaller():
         '--name=BilibiliMusicExtractor',  # 使用英文名称
         '--windowed',  # 不显示控制台窗口
         '--onefile',   # 打包为单个exe
-        '--icon=assets/icon.ico' if os.path.exists('assets/icon.ico') else '',
         '--add-data=src/ui;ui',
         '--add-data=src/core;core', 
         '--add-data=src/utils;utils',
@@ -144,12 +162,10 @@ def run_pyinstaller():
         '--hidden-import=beautifulsoup4',
         '--hidden-import=lxml',
         '--hidden-import=mutagen',
+        '--hidden-import=yt_dlp',
         '--clean',  # 清理临时文件
         'src/main.py'
     ]
-    
-    # 过滤空参数
-    pyinstaller_cmd = [arg for arg in pyinstaller_cmd if arg]
     
     safe_print("Starting build process...")
     safe_print(f"Command: {' '.join(pyinstaller_cmd)}")
@@ -185,23 +201,6 @@ def run_pyinstaller():
         safe_print(f"✗ Error during build: {e}")
         return False
 
-def rename_executable():
-    """构建完成后重命名可执行文件为中文（如果系统支持）"""
-    original_path = Path('dist') / 'BilibiliMusicExtractor.exe'
-    target_path = Path('dist') / 'B站音乐提取器.exe'
-    
-    if original_path.exists():
-        try:
-            # 尝试重命名为中文
-            original_path.rename(target_path)
-            safe_print(f"Renamed to: {target_path}")
-        except (OSError, UnicodeEncodeError):
-            # 如果重命名失败，保持英文名称
-            safe_print("Cannot rename to Chinese, keeping English name")
-            return str(original_path)
-    
-    return str(target_path) if target_path.exists() else str(original_path)
-
 def main():
     """主构建流程"""
     safe_print("=" * 50)
@@ -226,13 +225,9 @@ def main():
     if not run_pyinstaller():
         return 1
     
-    # 尝试重命名可执行文件
-    safe_print("\n3. Finalizing executable...")
-    final_exe_path = rename_executable()
-    
     safe_print("\n" + "=" * 50)
     safe_print("✓ Build completed successfully!")
-    safe_print(f"Executable location: {final_exe_path}")
+    safe_print("Executable location: dist/BilibiliMusicExtractor.exe")
     safe_print("=" * 50)
     
     return 0
